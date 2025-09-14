@@ -6,6 +6,8 @@ import { UtilsEDTService } from 'src/app/services/utils_EDT.service';
 import { Cita } from 'src/app/models/cita.model';
 import { ActivatedRoute, Router } from '@angular/router';
 import * as moment from 'moment-timezone';
+import { where } from 'firebase/firestore';
+import { DoctorService } from 'src/app/services/doctor_service';
 
 
 @Component({
@@ -17,26 +19,25 @@ export class AddUpdateCitaOculistaEstudianteMSComponent implements OnInit {
 
   @Input() cita: Cita;
 
-  // Define el formulario con todos los controles necesarios
   form = new FormGroup({
     id: new FormControl(''),
-    fotogra: new FormControl(''),
-    nom: new FormControl('', [Validators.required, Validators.minLength(2)]),
-    identific: new FormControl('', [Validators.required, Validators.minLength(8), Validators.maxLength(8)]),
-    cos: new FormControl(null),
-    fec: new FormControl(null, Validators.required),
-    tim: new FormControl(null, Validators.required),
-    med: new FormControl(null, Validators.required),
-    di: new FormControl(null, Validators.required),
-
-    carre: new FormControl(null, Validators.required),
-    tip: new FormControl('Oculista'),
-    sold: new FormControl(null, Validators.required),
-    hotm: new FormControl(null, [Validators.required, Validators.email]),
+    image: new FormControl(''),
+    name: new FormControl('', [Validators.required, Validators.minLength(2)]),
+    dni: new FormControl('', [Validators.required, Validators.minLength(8), Validators.maxLength(8)]),
+    price: new FormControl(null),
+    date: new FormControl(null, Validators.required),
+    time: new FormControl(null, Validators.required),
+    doctor: new FormControl(null, Validators.required),
+    day: new FormControl(null, Validators.required),
+    facultad: new FormControl(null, Validators.required),
+    type: new FormControl('Oftalmologia'),
+    phone: new FormControl(null, Validators.required),
+    email: new FormControl(null, [Validators.required, Validators.email]),
+    age: new FormControl('', [Validators.required, Validators.pattern('^[0-9]{2}$')])
   });
 
   user = {} as user_ETD;
-  doctors: string[] = ['Dr. Luis Martinez', 'Dra. Jade Herrera'];
+  doctors: string[] = [];
   dias: { nombre: string, valor: string }[] = [
     { nombre: 'Lunes', valor: 'Lunes' },
     { nombre: 'Martes', valor: 'Martes' },
@@ -45,17 +46,29 @@ export class AddUpdateCitaOculistaEstudianteMSComponent implements OnInit {
     { nombre: 'Viernes', valor: 'Viernes' },
     { nombre: 'Sábado', valor: 'Sábado' },
   ];
+doctorSeleccionado: string;
+
 
   constructor(
     private firebaseSvc: FirebaseEDTService,
     private utilsSvc: UtilsEDTService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+   private doctorService: DoctorService
+
+
   ) {}
 
   ngOnInit() {
     this.user = this.utilsSvc.getFromLocalStorage('user');
     
+    
+  const doctor = this.doctorService.getDoctorSeleccionado();
+  if (doctor) {
+    this.doctorSeleccionado = doctor.name;
+    this.form.controls.doctor.setValue(this.doctorSeleccionado);
+  }
+
     if (this.cita) {
       this.form.setValue(this.cita);
     } else {
@@ -66,28 +79,95 @@ export class AddUpdateCitaOculistaEstudianteMSComponent implements OnInit {
       const selectedHour = params.get('hora');
       const selectedDate = params.get('fecha');
       if (selectedHour) {
-        this.form.controls.tim.setValue(selectedHour);
+        this.form.controls.time.setValue(selectedHour);
       }
       if (selectedDate) {
-        // Convertir la fecha a la zona horaria de Lima usando moment-timezone
         const dateInLimaTimezone = moment.tz(selectedDate, 'America/Lima').toDate();
-        this.form.controls.fec.setValue(dateInLimaTimezone);
+        this.form.controls.date.setValue(dateInLimaTimezone);
       }
     });
   }
 
+  cargarDoctoresDisponibles() {
+    try {
+      // Obtener doctores desde Firestore según la especialidad
+      this.firebaseSvc.getCollecitionData('user', [
+        where('role', '==', 'admin'),
+        where('especialidad', '==', 'Oftalmologia')
+      ]).subscribe(doctoresRef => {
+        if (Array.isArray(doctoresRef)) {
+          this.doctors = doctoresRef.map(doc => doc['name']);
+          
+          if (this.doctors.length === 0) {
+            console.warn('No hay doctores disponibles para esta especialidad');
+            this.utilsSvc.presentToast({
+              message: 'No hay doctores disponibles para esta especialidad.',
+              duration: 3000,
+              color: 'warning',
+              position: 'middle'
+            });
+          } else {
+            // Obtener el doctor seleccionado de los parámetros de la ruta
+            const selectedDoctor = this.route.snapshot.paramMap.get('doctor');
+            if (selectedDoctor && this.doctors.includes(selectedDoctor)) {
+              this.form.controls.doctor.setValue(selectedDoctor);
+            } else {
+              // Si no hay doctor seleccionado o no está en la lista, seleccionar el primero
+              this.form.controls.doctor.setValue(this.doctors[0]);
+            }
+          }
+        } else {
+          throw new Error('Error al obtener datos de doctores');
+        }
+      }, error => {
+        console.error('Error al cargar doctores:', error);
+        this.utilsSvc.presentToast({
+          message: 'Error al cargar la lista de doctores. Por favor, inténtelo de nuevo más tarde.',
+          duration: 3000,
+          color: 'danger',
+          position: 'middle'
+        });
+        this.doctors = [];
+      });
+    } catch (error) {
+      console.error('Error al iniciar carga de doctores:', error);
+      this.utilsSvc.presentToast({
+        message: 'Error al cargar la lista de doctores. Por favor, inténtelo de nuevo más tarde.',
+        duration: 3000,
+        color: 'danger',
+        position: 'middle'
+      });
+      this.doctors = [];
+    }
+  }
+
+  preseleccionarDoctor() {
+    if (this.doctors.length > 0) {
+      // Seleccionar el primer doctor disponible por defecto
+      this.form.controls.doctor.setValue(this.doctors[0]);
+    }
+  }
+
   setUserDetails() {
-    this.form.controls.nom.setValue(this.user.nom);
-    this.form.controls.identific.setValue(this.user.identific);
-    this.form.controls.sold.setValue(this.user.fono);
-    this.form.controls.carre.setValue(this.user.carre);
-    this.form.controls.hotm.setValue(this.user.hotm);
+    this.form.controls.name.setValue(this.user.name);
+    this.form.controls.dni.setValue(this.user.dni);
+    this.form.controls.phone.setValue(this.user.phone);
+    this.form.controls.facultad.setValue(this.user.facultad);
+    this.form.controls.email.setValue(this.user.email);
+    
+    // Autocompletar edad si está disponible en el usuario
+    if (this.user.edad) {
+      this.form.controls.age.setValue(this.user.edad);
+    }
+
+    // Preseleccionar doctor basado en la disponibilidad
+    this.preseleccionarDoctor();
   }
 
   async takeImage() {
     try {
       const dataUrl = (await this.utilsSvc.takePicture('imagen a cargar')).dataUrl;
-      this.form.controls.fotogra.setValue(dataUrl);
+      this.form.controls.image.setValue(dataUrl);
     } catch (error) {
       console.error('Error taking image', error);
     }
@@ -104,9 +184,9 @@ export class AddUpdateCitaOculistaEstudianteMSComponent implements OnInit {
   }
 
   setNumberInputs() {
-    let { sold, cos } = this.form.controls;
-    if (sold.value) sold.setValue(parseFloat(sold.value));
-    if (cos.value) cos.setValue(parseFloat(cos.value));
+    let { phone, price } = this.form.controls;
+    if (phone.value) phone.setValue(parseFloat(phone.value));
+    if (price.value) price.setValue(parseFloat(price.value));
   }
 
   async createCita() {
@@ -115,9 +195,9 @@ export class AddUpdateCitaOculistaEstudianteMSComponent implements OnInit {
     await loading.present();
 
     try {
-      if (this.form.value.fotogra) {
+      if (this.form.value.image) {
         const imageUrl = await this.uploadImage();
-        this.form.controls.fotogra.setValue(imageUrl);
+        this.form.controls.image.setValue(imageUrl);
       }
 
       delete this.form.value.id;
@@ -134,14 +214,14 @@ export class AddUpdateCitaOculistaEstudianteMSComponent implements OnInit {
   }
 
   async updateCita() {
-    const path = `Estudiante/${this.user.uid}/cita_oculista/${this.cita.id}`;
+    const path = `Estudiantes/${this.user.uid}/cita_oftalmologia/${this.cita.id}`;
     const loading = await this.utilsSvc.loading();
     await loading.present();
 
     try {
-      if (this.form.value.fotogra !== this.cita.fotogra && this.form.value.fotogra) {
+      if (this.form.value.image !== this.cita.image && this.form.value.image) {
         const imageUrl = await this.uploadImage();
-        this.form.controls.fotogra.setValue(imageUrl);
+        this.form.controls.image.setValue(imageUrl);
       }
 
       delete this.form.value.id;
@@ -158,7 +238,7 @@ export class AddUpdateCitaOculistaEstudianteMSComponent implements OnInit {
   }
 
   async uploadImage() {
-    const dataUrl = this.form.value.fotogra;
+    const dataUrl = this.form.value.image;
     const imagePath = `${this.user.uid}/${Date.now()}`;
     return await this.firebaseSvc.uploadImage(imagePath, dataUrl);
   }
@@ -173,38 +253,27 @@ export class AddUpdateCitaOculistaEstudianteMSComponent implements OnInit {
     });
   }
 
-  // Validador personalizado para asegurar que la fecha seleccionada no sea en el pasado
   validateDate(control: FormControl) {
     const selectedDate = new Date(control.value);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    if (selectedDate < today) {
-      return { pastDate: true };
-    }
-    return null;
+    return selectedDate < today ? { pastDate: true } : null;
   }
 
   updateFechaFromDia() {
-    const selectedDay = this.form.value.di;
+    const selectedDay = this.form.value.day;
     const today = new Date();
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const todayIndex = today.getDay(); // 0 for Sunday, 1 for Monday, ..., 6 for Saturday
+    const todayIndex = today.getDay();
     const targetDayIndex = days.findIndex(day => day.toLowerCase() === selectedDay.toLowerCase());
-    
+
     if (targetDayIndex !== -1) {
-        let nextDate = new Date(today);
-        let dayDifference = targetDayIndex - todayIndex;
-        
-        if (dayDifference < 0) {
-            dayDifference += 7; // Add 7 days if the selected day has already passed this week
-        }
-        
-        nextDate.setDate(today.getDate() + dayDifference);
-        
-        // Format the date as YYYY-MM-DD (input type="date" format)
-        const formattedDate = nextDate.toISOString().substring(0, 10);
-        this.form.controls.fec.setValue(formattedDate);
+      let nextDate = new Date(today);
+      let dayDifference = targetDayIndex - todayIndex;
+      if (dayDifference < 0) dayDifference += 7;
+      nextDate.setDate(today.getDate() + dayDifference);
+      const formattedDate = nextDate.toISOString().substring(0, 10);
+      this.form.controls.date.setValue(formattedDate);
     }
-}
+  }
 }

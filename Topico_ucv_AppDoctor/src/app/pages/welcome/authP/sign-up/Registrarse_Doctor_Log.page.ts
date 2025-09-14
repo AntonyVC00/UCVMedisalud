@@ -27,6 +27,11 @@ export class Registrarse_Doctor_LogPage implements OnInit {
     role: new FormControl('admin', [Validators.required]) // Valor predeterminado: admin
   });
 
+
+    // Variable para controlar el tipo de input de la contraseña
+  passwordFieldType: 'password' | 'text' = 'password';
+
+
   firebaseSvc = inject(FirebaseService);
   utilsSvc= inject(Camara_utilsService)
 
@@ -61,6 +66,13 @@ export class Registrarse_Doctor_LogPage implements OnInit {
     }
   }
 
+
+      // Función para alternar la visibilidad de la contraseña
+      togglePasswordVisibility() {
+        this.passwordFieldType = this.passwordFieldType === 'password' ? 'text' : 'password';
+      }
+    
+
   async setUserInfo(uid:string) {
     if(this.form.valid){
       const loading = await this.utilsSvc.loading();
@@ -71,7 +83,7 @@ export class Registrarse_Doctor_LogPage implements OnInit {
 
       this.firebaseSvc.setDocument(path, this.form.value).then(async res =>{
         this.utilsSvc.saveInLocalStorage('user',this.form.value)
-        this.utilsSvc.routerLink('/main-p/home');
+        this.utilsSvc.routerLink('/welcome');
         this.form.reset();
       }).catch(error=>{
         console.log(error);

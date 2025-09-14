@@ -1,35 +1,51 @@
-ion-item.user-item {
+.user-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
+  flex-direction: column;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  padding: 16px 20px;
+  margin-bottom: 15px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
 
-  ion-label {
-    flex: 1;
-    margin-right: 16px;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  }
 
-    h2.user-name {
-      font-size: 18px;
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
+  .user-name {
+    font-size: 22px;
+    font-weight: 900;
+    color: #222;
+    margin-bottom: 12px;
+    text-transform: capitalize;
+  }
 
-    p.user-email {
-      font-size: 14px;
-      color: #777;
-    }
+  .user-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
 
-    h3.user-dni {
-      font-size: 14px;
+    p {
+      margin: 0;
+      font-size: 15px;
       color: #555;
+
+      strong {
+        color: #000;
+        margin-right: 6px;
+        font-weight: 600;
+      }
     }
   }
 
- 
-  ion-select.user-status-select {
-    width: 150px;
-    font-size: 14px;
-    margin-left: auto; // Agrega esta línea para mover el combo box a la derecha
-
-}
+  .user-status-select {
+    align-self: flex-start;
+    min-width: 160px;
+    margin-left: auto;
+    font-weight: 600;
+    color: #444;
+  }
 }
